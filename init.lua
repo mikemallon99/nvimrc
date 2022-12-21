@@ -40,16 +40,22 @@ require('packer').startup(function(use)
     after = 'nvim-treesitter',
   }
 
+  -- NVIM DAP
+  use 'mfussenegger/nvim-dap'
+  use 'mfussenegger/nvim-dap-python'
+
   -- Git related plugins
   use 'tpope/vim-fugitive'
   use 'tpope/vim-rhubarb'
   use 'lewis6991/gitsigns.nvim'
 
+  use { "catppuccin/nvim", as = "catppuccin" }
   use 'navarasu/onedark.nvim' -- Theme inspired by Atom
   use 'nvim-lualine/lualine.nvim' -- Fancier statusline
   use 'lukas-reineke/indent-blankline.nvim' -- Add indentation guides even on blank lines
   use 'numToStr/Comment.nvim' -- "gc" to comment visual regions/lines
   use 'tpope/vim-sleuth' -- Detect tabstop and shiftwidth automatically
+  use 'tpope/vim-surround'
 
   -- Fuzzy Finder (files, lsp, etc)
   use { 'nvim-telescope/telescope.nvim', branch = '0.1.x', requires = { 'nvim-lua/plenary.nvim' } }
@@ -118,9 +124,13 @@ vim.o.smartcase = true
 vim.o.updatetime = 250
 vim.wo.signcolumn = 'yes'
 
+-- Clipboard
+vim.o.clipboard = "unnamedplus"
+vim.o.scrolloff = 5
+
 -- Set colorscheme
 vim.o.termguicolors = true
-vim.cmd [[colorscheme onedark]]
+vim.cmd [[colorscheme catppuccin-frappe]]
 
 -- Set completeopt to have a better completion experience
 vim.o.completeopt = 'menuone,noselect'
@@ -156,7 +166,7 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 require('lualine').setup {
   options = {
     icons_enabled = false,
-    theme = 'onedark',
+    theme = 'catppuccin',
     component_separators = '|',
     section_separators = '',
   },
@@ -197,8 +207,42 @@ require('telescope').setup {
   },
 }
 
+-- [[ Configure nvim dap ]]
+local dap = require('dap')
+dap.adapters.python = {
+  type = 'server';
+  port = 3000;
+  args = { '-m', 'debugpy.adapter' };
+}
+
+dap.configurations.python = {
+    {
+        name = "Python: Attach (windows-x86_64/linux-x86_64)";
+        type = "python";
+        request = "attach";
+        localRoot = "${workspaceFolder}";
+        remoteRoot = "${workspaceFolder}";
+        port = 3000;
+        host = "localhost";
+        runtimeArgs = {
+            "--preserve-symlinks",
+            "--preserve-symlinks-main"
+        };
+        presentation = {
+            hidden = false;
+            group = "Attach";
+            order = 1
+        };
+    },
+}
+
 -- Enable telescope fzf native, if installed
 pcall(require('telescope').load_extension, 'fzf')
+
+-- Custom keymaps for native nvim
+vim.keymap.set('n', '<C-e>', '10<C-e>', { desc = 'Scroll down 5' })
+vim.keymap.set('n', '<C-y>', '10<C-y>', { desc = 'Scroll up 5' })
+vim.keymap.set('n', '<C-b>', ':Ex<CR>', { desc = 'Go to netrw' })
 
 -- See `:help telescope.builtin`
 vim.keymap.set('n', '<leader>?', require('telescope.builtin').oldfiles, { desc = '[?] Find recently opened files' })
@@ -218,6 +262,18 @@ vim.keymap.set('n', '<leader>sh', require('telescope.builtin').help_tags, { desc
 vim.keymap.set('n', '<leader>sw', require('telescope.builtin').grep_string, { desc = '[S]earch current [W]ord' })
 vim.keymap.set('n', '<leader>sg', require('telescope.builtin').live_grep, { desc = '[S]earch by [G]rep' })
 vim.keymap.set('n', '<leader>sd', require('telescope.builtin').diagnostics, { desc = '[S]earch [D]iagnostics' })
+
+-- Nvim dap controls and settings
+vim.fn.sign_define('DapBreakpoint', {text='🛑', texthl='', linehl='', numhl=''})
+vim.keymap.set('n', '<F5>', require('dap').continue, { desc = 'Continue/Connect' })
+vim.keymap.set('n', '<F10>', require('dap').step_over, { desc = 'Step Over' })
+vim.keymap.set('n', '<F11>', require('dap').step_into, { desc = 'Step Into' })
+vim.keymap.set('n', '<F12>', require('dap').step_out, { desc = 'Step Out' })
+vim.keymap.set('n', '<Leader>b', require('dap').set_breakpoint, { desc = 'Set Breakpoint' })
+vim.keymap.set('n', '<Leader>eb', require('dap').set_exception_breakpoints, { desc = 'Exception Breakpoints' })
+vim.keymap.set('n', '<Leader>cb', require('dap').clear_breakpoints, { desc = 'Clear Breakpoints' })
+vim.keymap.set('n', '<Leader>B', function() require('dap').set_breakpoint(vim.fn.input('Breakpoint Condition: ')) end , { desc = 'Set Breakpoint Condition' })
+vim.keymap.set('n', '<Leader>dr', require('dap').repl.open, { desc = 'Open REPL' })
 
 -- [[ Configure Treesitter ]]
 -- See `:help nvim-treesitter`
@@ -335,6 +391,7 @@ local on_attach = function(_, bufnr)
       vim.lsp.buf.formatting()
     end
   end, { desc = 'Format current buffer with LSP' })
+
 end
 
 -- Setup mason so it can manage external tooling
